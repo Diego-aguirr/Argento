@@ -1,5 +1,7 @@
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
+Project: a **BeReal-style photo-sharing app** (one post per day, 24h expiration, Supabase backend). The full spec — features, schema, architecture, flows — lives in `README.md`.
+
 ## Expo has changed — do not trust your training data
 
 Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
@@ -10,7 +12,7 @@ Expo ships breaking changes every SDK release. APIs you remember are likely rena
 
 ## Commands
 
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
+Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present). This project uses **pnpm** (`pnpm-lock.yaml`) for installing; `npx expo install` still resolves SDK-compatible versions regardless of the package manager.
 
 ```bash
 npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
@@ -33,6 +35,39 @@ Run lint and typecheck before declaring any task done.
 
 Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
 Docs: https://docs.expo.dev/eas/index.md
+
+## Security & Data Handling
+
+- The JS bundle ships to the user and can be decompiled — anything inside the app is PUBLIC. Never treat in-app values as secrets.
+- Secrets, API credentials, tokens, and payment keys live only on the backend. They are never hardcoded in the app or its config.
+- Environment variables: only `EXPO_PUBLIC_*` prefixed vars are exposed to the app, and only for values that are public by design (e.g. map or error-tracking keys). Everything else must be read from the backend.
+- `.env` files are gitignored and never committed; `.env.example` documents the required keys with placeholders.
+- Validate and sanitize any user or API input before use; store the minimum personal data necessary and never log tokens, credentials, or PII.
+
+### Supabase rules
+
+- `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are public by design (they ship in the bundle). That is expected — safety comes from Row Level Security, not from hiding them.
+- `SUPABASE_SERVICE_ROLE_KEY` bypasses ALL security rules. It is for local dev scripts only (e.g. `scripts/seed.ts`). Never read it with `process.env.EXPO_PUBLIC_*`, never import it from app code, never log it.
+- Enable RLS on every table; write the policies for `profiles` and `posts` before exposing reads/writes.
+- Storage buckets: default to private with signed URLs in production; public buckets mean anyone with the URL sees the image.
+
+## AI Skill Arsenal
+
+- The skill index lives in `.atl/skill-registry.md`. Before writing or reviewing code, load the matching skill(s) and follow them:
+  - `react-native-best-practices` — lists, animations, images, platform variants, re-renders.
+  - `expo-router-architecture` — routes, layouts, params, deep links, typedRoutes.
+  - `react-native-architecture` — feature-first structure, container/presentational, state-management gate, API layer.
+  - `react-native-testing` — test command detection, jest-expo, native mocks, TDD gates.
+- Skills are instructions, not inspiration: their Hard Rules are binding for this project.
+- Project conventions in this file (AGENTS.md) and README.md outrank generic skill advice on conflict; report the conflict instead of silently choosing.
+
+## Workflow & Permission
+
+- Ask for explicit permission before any action that changes state: creating or deleting branches, commits, pushes, PRs, dependency installs, or config changes. Plan and explain first; act only after the human approves.
+- Dependency and tooling decisions: the human asks about a package/tool, and the assistant verifies its real state (`package.json`, `node_modules`, versioned docs) before answering with an explicit verdict — **yes / no / not yet** — plus the technical reason. Never install or remove anything on your own initiative.
+- Open every file you create or modify in VS Code (`code <path>`) after the change, so the human can inspect it visually in the same turn.
+- Daily work happens on a branch: create a feature branch from `main` at the start of a work session. Never commit directly to `main`.
+- Use Conventional Commits (e.g. `feat:`, `fix:`, `chore:`) and never add AI attribution or `Co-Authored-By` trailers.
 
 ## Rules
 
