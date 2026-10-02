@@ -63,7 +63,7 @@ Docs: https://docs.expo.dev/eas/index.md
 
 ## Workflow & Permission
 
-- The assistant drives routine work autonomously on the active feature branch: writing code, local dependency installs, lint/typecheck, commits, and pushes — then reports what it did. Ask the human only for: destructive actions beyond starter cleanup (deleting branches/history, force-push), merges to `main`, credential/account operations, and product scope changes.
+- The assistant drives routine work autonomously on the active feature branch: writing code, local dependency installs, lint/typecheck, and local commits — then reports what it did. **Never push to the remote unless the human explicitly asks for it in that moment.** Ask the human only for: pushes, destructive actions (deleting branches/history, force-push), merges to `main`, credential/account operations, and product scope changes.
 - Dependency and tooling decisions: the human asks about a package/tool, and the assistant verifies its real state (`package.json`, `node_modules`, versioned docs) before answering with an explicit verdict — **yes / no / not yet** — plus the technical reason. Never install or remove anything on your own initiative.
 - Open every file you create or modify in VS Code (`code <path>`) after the change, so the human can inspect it visually in the same turn.
 - Daily work happens on a branch: create a feature branch from `main` at the start of a work session. Never commit directly to `main`.
