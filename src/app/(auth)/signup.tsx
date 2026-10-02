@@ -3,23 +3,23 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function LoginScreen() {
+export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
 
-  const handleSignIn = () => {
+  const handleCreateAccount = () => {
     Alert.alert('Not wired yet', 'The backend connection comes in a later step.');
   };
 
-  const handleSignUp = () => {
-    router.push('/signup');
+  const handleSignIn = () => {
+    router.push('/login');
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Sign in to Argento</Text>
+        <Text style={styles.title}>Create your account</Text>
         <Text style={styles.subtitle}>One photo a day. 24h, then it&apos;s gone.</Text>
 
         <View style={styles.form}>
@@ -43,18 +43,18 @@ export default function LoginScreen() {
           />
           <Pressable
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-            onPress={handleSignIn}>
-            <Text style={styles.buttonText}>Sign in</Text>
+            onPress={handleCreateAccount}>
+            <Text style={styles.buttonText}>Create account</Text>
           </Pressable>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Don&apos;t have an account?{' '}</Text>
+          <Text style={styles.footerText}>Already have an account?{' '}</Text>
           <Pressable
-            onPress={handleSignUp}
+            onPress={handleSignIn}
             hitSlop={8}
             style={({ pressed }) => pressed && styles.footerLinkPressed}>
-            <Text style={styles.footerLink}>Sign up</Text>
+            <Text style={styles.footerLink}>Sign in</Text>
           </Pressable>
         </View>
       </View>
