@@ -3,13 +3,37 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAuth } from '@/context/AuthContext';
+import { describeAuthError } from '@/lib/auth-errors';
+
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const { signIn } = useAuth();
   const router = useRouter();
 
-  const handleSignIn = () => {
-    Alert.alert('Not wired yet', 'The backend connection comes in a later step.');
+  const handleSignIn = async () => {
+    if (submitting) return;
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      Alert.alert('Missing details', 'Enter your email and password.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { error } = await signIn(trimmedEmail, password);
+      const presented = describeAuthError(error);
+      if (presented) {
+        Alert.alert(presented.title, presented.message);
+      }
+      // On success there is no navigation here: RouteGuard reacts to the
+      // session change and moves the user to the tabs.
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSignUp = () => {
@@ -42,9 +66,14 @@ export default function LoginScreen() {
             secureTextEntry
           />
           <Pressable
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.buttonPressed,
+              submitting && styles.buttonDisabled,
+            ]}
+            disabled={submitting}
             onPress={handleSignIn}>
-            <Text style={styles.buttonText}>Sign in</Text>
+            <Text style={styles.buttonText}>{submitting ? 'Signing in…' : 'Sign in'}</Text>
           </Pressable>
         </View>
 
@@ -109,6 +138,9 @@ const styles = StyleSheet.create({
   },
   buttonPressed: {
     opacity: 0.8,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   buttonText: {
     fontSize: 16,
