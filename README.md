@@ -113,6 +113,29 @@ All navigation logic lives in one place — the `RouteGuard` component in the ro
 
 ## Getting Started
 
+### Database setup
+
+The `supabase/migrations/` folder is the **source of truth for the schema**. Run the files in filename order:
+
+| File | Creates |
+|---|---|
+| `supabase/migrations/20261003170000_create_profiles.sql` | `profiles` table, its three RLS policies, the signup trigger, and a backfill for pre-existing accounts |
+| `supabase/migrations/20261003170100_storage_profiles_bucket.sql` | The private `profiles` storage bucket and its owner-only access policies |
+
+Until the Supabase CLI is adopted, open **Dashboard → SQL Editor**, paste the contents of each file, and press **Run** — one file at a time, in the order above. The folder layout already matches the CLI convention, so `supabase db push` will work unchanged once the CLI is set up.
+
+**Verify** by running this in the SQL Editor:
+
+```sql
+select id, name, username, onboarding_completed from public.profiles;
+```
+
+Expected result: exactly 1 row, with `name` and `username` null and `onboarding_completed = false`.
+
+> **Still TODO:** the `posts` table and the `posts` storage bucket are not created yet.
+
+### Steps
+
 1. Install dependencies:
 
    ```bash
@@ -121,8 +144,7 @@ All navigation logic lives in one place — the `RouteGuard` component in the ro
 
 2. Set up Supabase ([supabase.com](https://supabase.com)):
    - Authentication → enable email/password sign-ups
-   - Database → create `profiles` and `posts` tables (schema above)
-   - Storage → create `profiles` and `posts` buckets
+   - Database + Storage → open Dashboard → SQL Editor, paste the contents of each file under `supabase/migrations/` in filename order, and Run each one (details in [Database setup](#database-setup))
 
 3. Create `.env` in the project root (never committed):
 
@@ -132,8 +154,7 @@ All navigation logic lives in one place — the `RouteGuard` component in the ro
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here   # dev scripts ONLY — never enters the app bundle
    ```
 
-4. Seed the database (optional): `pnpm run seed`
-5. Start the app: `npx expo start` — scan the QR with Expo Go, or press `i` / `a` for simulators.
+4. Start the app: `npx expo start` — scan the QR with Expo Go, or press `i` / `a` for simulators.
 
 ## Project File Structure
 
@@ -152,10 +173,9 @@ src/
 │       └── profile.tsx
 ├── context/AuthContext.tsx       # Auth state
 ├── hooks/usePosts.ts             # Post CRUD
-├── lib/
-│   ├── date-helper.ts            # Time formatting
-│   └── supabase/                 # Client + storage utils
-└── scripts/seed.ts               # Dev seeding
+└── lib/
+    ├── date-helper.ts            # Time formatting
+    └── supabase/                 # Client + storage utils
 ```
 
 ## Conventions & AI Assistant Rules
