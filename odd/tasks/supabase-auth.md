@@ -2,7 +2,7 @@
 
 **Branch:** `feat/supabase-auth`
 **Created:** 2026-10-03
-**Route:** delegated direct (writer delegation for migrations/README batch)
+**Route:** delegated direct (writer delegation for migrations/README and onboarding batches)
 
 ## Objective
 
@@ -22,8 +22,8 @@ source of truth in the repo.
 - No push to a remote unless the human asks in that moment.
 - Never install or remove a dependency without an explicit yes.
 - `.env` is never committed; `SUPABASE_SERVICE_ROLE_KEY` never enters app code.
-- Errors shown to users are always mapped through `describeAuthError`
-  (`src/lib/auth-errors.ts`) — raw backend messages never reach the UI.
+- Errors shown to users are always mapped through `describeAuthError` /
+  `describePostgrestError` — raw backend messages never reach the UI.
 - All generated artifacts in English; reply to the human in Rioplatense Spanish.
 
 ## Checklist
@@ -33,8 +33,11 @@ source of truth in the repo.
 - [x] **T3** `AuthProvider` in root layout, RouteGuard with loading gate, login + signup wired — `c21d48e`
 - [x] **T4** Hide the Expo-starter top bar on web without breaking tab routing — `83dac19`
 - [x] **T5** Versioned `supabase/migrations/` + README `Database setup` section — `f6bca90`
-- [ ] **T6** *(human)* Run both migrations in Dashboard → SQL Editor, then the verification query
-- [ ] **T7** Onboarding screen: name, username, profile image → persist to `profiles`
+- [x] **T6** *(human)* Run the migrations — done; verified live via REST: `profiles`
+      returns all 5 columns (`limit=0` probe → 200), and bucket `profiles` exists
+      (`/object/profiles/x` → `NoSuchKey`, not `NoSuchBucket`)
+- [x] **T7** Onboarding screen: name + username → persist to `profiles` — `426f628`
+      (profile image deferred to T15; **not yet run in Expo Go**)
 - [ ] **T8** Migration: `posts` table + `posts` storage bucket + RLS
 - [ ] **T9** Feed with pull-to-refresh
 - [ ] **T10** Camera / photo library, crop 1:1, upload to storage
@@ -42,6 +45,7 @@ source of truth in the repo.
 - [ ] **T12** Profile screen (edit image, view details)
 - [ ] **T13** Dev seeding script (`scripts/seed.ts` — README promises it, it does not exist)
 - [ ] **T14** `app.json` photo/camera permission strings before store submission
+- [ ] **T15** Profile image in onboarding (bucket `profiles` already exists)
 
 ## Scope notes / accepted decisions
 
@@ -52,12 +56,20 @@ source of truth in the repo.
 - **Supabase CLI not installed yet.** `supabase/migrations/` follows the CLI
   layout so `supabase db push` works unchanged later. Pasting into the SQL
   Editor bypasses migration history — adopting the CLI will need
-  `supabase migration repair --status applied <timestamp>` for T6's two files.
-- **RouteGuard risk (deferred):** `onboarding` lives inside `(auth)`, and the
-  `user && inAuthGroup → replace('/(tabs)')` branch would eject a logged-in
-  user from it. Must be revisited in T7.
-- **Profile type deferred.** README defines no home for `Profile`/`PresentedError`
-  domain types; decide with the human when posts land.
+  `supabase migration repair --status applied <timestamp>` for T6's files.
+- **RouteGuard risk RESOLVED in T7.** `onboarding` lives inside `(auth)`, so the
+  guard now returns early on `profileLoading`, branches on
+  `onboarding_completed !== true`, and only redirects to tabs from inside the
+  auth group. Each branch `return`s so conditions cannot stack.
+- **Two loading flags are deliberate.** `loading` = persisted session read
+  (splash gate, cold-start flash fix); `profileLoading` = profile row read.
+  Merging them would hold the app on the splash for a network round-trip.
+- **Domain types have a home now.** `Profile`, `fetchProfile`, `saveProfile`
+  live in `src/lib/supabase/profiles.ts`; `PresentedError` stays in
+  `src/lib/auth-errors.ts`; PostgREST errors map through
+  `src/lib/db-errors.ts` (`describePostgrestError`).
+- **Screens never navigate.** Onboarding saves and calls `refreshProfile()`;
+  the RouteGuard is the single redirect decision point.
 
 ## Verification
 
@@ -69,26 +81,34 @@ source of truth in the repo.
 
 Run after every task closure before committing.
 
+**Gotcha found in T7:** typed routes were stale — `.expo/types/router.d.ts`
+had been generated before `onboarding.tsx` existed, so `tsc` reported
+`TS2367`/`TS2345` on the new route. Fixed by regenerating with a short
+`CI=1 npx expo start`. Any newly added route file needs this before `tsc`.
+
 ## Progress & evidence
 
-- Authored diff since branch point `7979c22`: **14 files, +629 / −97**
+- Authored diff since branch point `7979c22`: **19 files, +995 / −102**
   (`pnpm-lock.yaml` accounts for 125 of the additions).
-- **Delivery decision still open:** over the ~400 authored-line heuristic, so
-  when a PR is requested this needs `ask-on-risk` → chained PRs, or an explicit
-  `size:exception`. Nothing has been pushed.
+- **Delivery decision still open:** well over the ~400 authored-line heuristic,
+  so when a PR is requested this needs `ask-on-risk` → chained PRs, or an
+  explicit `size:exception`. Nothing has been pushed.
 - Live backend verified: `GET /auth/v1/health` → 200 (GoTrue v2.197.0);
-  `POST /auth/v1/token` with invented credentials → 400 `invalid_credentials`,
-  confirming the `describeAuthError` key is correct.
+  `POST /auth/v1/token` with invented credentials → 400 `invalid_credentials`.
 - Pasted in chat: the Postgres password. **Human must rotate it.**
+- **Open collateral damage:** the human's `formatOnSave` prettier run rewrote
+  quotes in `src/lib/supabase/client.ts` and `src/components/app-tabs.web.tsx`
+  (single → double), against the project's single-quote convention. Revert
+  pending; both left uncommitted. `.vscode/settings.json` also carries an
+  unreviewed Prisma formatter line.
 
 ## Next step
 
-T6 — human runs both migrations and reports the `Run` result plus
-`select id, name, username, onboarding_completed from public.profiles;`
-(expected: exactly 1 row). Then T7 (onboarding).
+Run the app in Expo Go and exercise the flow end to end with an account whose
+`onboarding_completed` is false, then T8 (`posts` table + bucket migration).
 
 ## Rationale
 
 Recorded per-commit reasons live in the Conventional Commit messages; this
 file only carries the decisions a diff cannot show (Prisma rejection, CLI
-deferred, RouteGuard risk).
+deferred, RouteGuard resolution, two-flag loading design).
