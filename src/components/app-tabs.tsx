@@ -1,4 +1,6 @@
-import { NativeTabs } from 'expo-router/native-tabs';
+// The same NativeTabs module ships under 'expo-router/native-tabs' from
+// SDK 58 on; on SDK 57 only this path resolves.
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';

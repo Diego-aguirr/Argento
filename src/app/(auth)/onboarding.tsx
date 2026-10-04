@@ -1,69 +1,73 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/context/AuthContext';
-import { describeAuthError } from '@/lib/auth-errors';
+import { describePostgrestError } from '@/lib/db-errors';
+import { saveProfile } from '@/lib/supabase/profiles';
 
-export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export default function OnboardingScreen() {
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { signIn } = useAuth();
-  const router = useRouter();
+  const { user, refreshProfile } = useAuth();
 
-  const handleSignIn = async () => {
+  const handleContinue = async () => {
     if (submitting) return;
 
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      Alert.alert('Missing details', 'Enter your email and password.');
+    const trimmedName = name.trim();
+    const trimmedUsername = username.trim();
+    if (!trimmedName || !trimmedUsername) {
+      Alert.alert('Missing details', 'Enter a name and a username to continue.');
       return;
     }
 
+    if (!user) return;
+
     setSubmitting(true);
     try {
-      const { error } = await signIn(trimmedEmail, password);
-      const presented = describeAuthError(error);
+      const { error } = await saveProfile(user.id, {
+        name: trimmedName,
+        username: trimmedUsername,
+      });
+
+      const presented = describePostgrestError(error);
       if (presented) {
         Alert.alert(presented.title, presented.message);
+        return;
       }
-      // On success there is no navigation here: RouteGuard reacts to the
-      // session change and moves the user to the tabs.
+
+      // No navigation here: RouteGuard reacts to onboarding_completed and
+      // moves the user to the tabs on its own.
+      await refreshProfile();
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleSignUp = () => {
-    router.push('/signup');
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Sign in to Argento</Text>
-        <Text style={styles.subtitle}>One photo a day. 24h, then it&apos;s gone.</Text>
+        <Text style={styles.title}>A couple of details</Text>
+        <Text style={styles.subtitle}>This is how your friends will find you.</Text>
 
         <View style={styles.form}>
           <TextInput
             style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Email"
+            value={name}
+            onChangeText={setName}
+            placeholder="Name"
             placeholderTextColor="#999"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
+            autoCapitalize="words"
           />
           <TextInput
             style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
+            value={username}
+            onChangeText={setUsername}
+            placeholder="Username"
             placeholderTextColor="#999"
-            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
           />
           <Pressable
             style={({ pressed }) => [
@@ -72,18 +76,8 @@ export default function LoginScreen() {
               submitting && styles.buttonDisabled,
             ]}
             disabled={submitting}
-            onPress={handleSignIn}>
-            <Text style={styles.buttonText}>{submitting ? 'Signing in…' : 'Sign in'}</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don&apos;t have an account?{' '}</Text>
-          <Pressable
-            onPress={handleSignUp}
-            hitSlop={8}
-            style={({ pressed }) => pressed && styles.footerLinkPressed}>
-            <Text style={styles.footerLink}>Sign up</Text>
+            onPress={handleContinue}>
+            <Text style={styles.buttonText}>{submitting ? 'Saving…' : 'Continue'}</Text>
           </Pressable>
         </View>
       </View>
@@ -146,24 +140,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
-  },
-  footer: {
-    marginTop: 24,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  footerLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
-  },
-  footerLinkPressed: {
-    opacity: 0.6,
   },
 });
