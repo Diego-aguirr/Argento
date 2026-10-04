@@ -9,7 +9,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 SplashScreen.preventAutoHideAsync();
 
 function RouteGuard() {
-  const { user, loading } = useAuth();
+  const { user, loading, profile, profileLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -19,15 +19,32 @@ function RouteGuard() {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const onOnboarding = inAuthGroup && segments[1] === 'onboarding';
 
-    if (!user && !inAuthGroup) {
-      router.replace('/(auth)/login');
+    if (!user) {
+      if (!inAuthGroup) {
+        router.replace('/(auth)/login');
+      }
+      return;
     }
 
-    if (user && inAuthGroup) {
+    // The onboarding decision lives in the profile row, so wait for it:
+    // routing meanwhile would bounce a signed-in user before we know.
+    if (profileLoading) return;
+
+    const needsOnboarding = profile?.onboarding_completed !== true;
+
+    if (needsOnboarding) {
+      if (!onOnboarding) {
+        router.replace('/(auth)/onboarding');
+      }
+      return;
+    }
+
+    if (inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [user, loading, segments, router]);
+  }, [user, loading, profile, profileLoading, segments, router]);
 
   return null;
 }

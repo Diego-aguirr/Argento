@@ -2,6 +2,7 @@ import type { AuthError, Session, User } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { supabase } from '@/lib/supabase/client';
+import { fetchProfile, type Profile } from '@/lib/supabase/profiles';
 
 export type SignInResult = {
   error: AuthError | null;
@@ -22,6 +23,12 @@ type AuthContextValue = {
   user: User | null;
   /** True until the persisted session has been read from storage. */
   loading: boolean;
+  /** Profile row of the signed-in user, or null while signed out / not loaded yet. */
+  profile: Profile | null;
+  /** True while the profile row is being read. Independent of `loading`. */
+  profileLoading: boolean;
+  /** Re-reads the profile row for the signed-in user. No-op when signed out. */
+  refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<SignInResult>;
   signUp: (email: string, password: string) => Promise<SignUpResult>;
   signOut: () => Promise<SignOutResult>;
@@ -32,6 +39,8 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +68,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  const userId = session?.user?.id;
+
+  // The profile loads in its own effect so `loading` keeps its exact meaning
+  // ("the persisted session has been read"). Sharing it would hold the app on
+  // the splash screen for the profile round-trip and bring back the cold-start
+  // flash this guard exists to prevent.
+  useEffect(() => {
+    let cancelled = false;
+
+    // Async on purpose: setState only ever runs in a continuation, never
+    // synchronously in the effect body (react-hooks/set-state-in-effect).
+    const load = async () => {
+      if (!userId) {
+        setProfile(null);
+        setProfileLoading(false);
+        return;
+      }
+
+      setProfileLoading(true);
+      try {
+        const { profile: fetched } = await fetchProfile(userId);
+        if (cancelled) return;
+        setProfile(fetched);
+      } catch {
+        // No answer (offline, host down): show nothing rather than leave
+        // routing stuck on profileLoading forever.
+        if (cancelled) return;
+        setProfile(null);
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const refreshProfile = async (): Promise<void> => {
+    if (!userId) return;
+
+    setProfileLoading(true);
+    try {
+      const { profile: fetched } = await fetchProfile(userId);
+      setProfile(fetched);
+    } catch {
+      setProfile(null);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   const signIn = async (email: string, password: string): Promise<SignInResult> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -89,6 +152,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user: session?.user ?? null,
     loading,
+    profile,
+    profileLoading,
+    refreshProfile,
     signIn,
     signUp,
     signOut,
