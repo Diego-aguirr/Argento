@@ -23,7 +23,8 @@ export function usePosts(): UsePostsResult {
   const inFlight = useRef(false);
 
   const refresh = useCallback(async (): Promise<void> => {
-    // RefreshControl and the retry button can fire while a run is open.
+    // RefreshControl and the retry button can fire while a run is open —
+    // including the initial load, which owns the flag until it settles.
     if (inFlight.current) return;
     inFlight.current = true;
     setRefreshing(true);
@@ -43,6 +44,11 @@ export function usePosts(): UsePostsResult {
 
   useEffect(() => {
     let cancelled = false;
+    // The initial load takes the same lock refresh() checks, so a refresh
+    // fired while the first response is still open becomes a no-op instead
+    // of a second concurrent writer — otherwise the slower of the two
+    // responses wins and can overwrite fresher posts with stale ones.
+    inFlight.current = true;
 
     // Async on purpose: setState only runs in continuations, never
     // synchronously in the effect body (react-hooks/set-state-in-effect).
@@ -56,7 +62,13 @@ export function usePosts(): UsePostsResult {
         if (cancelled) return;
         setError(describePostgrestError(cause as PostgrestError));
       } finally {
-        if (!cancelled) setLoading(false);
+        // A cancelled run (unmount, StrictMode re-run) must NOT release the
+        // lock: a replacement effect run already owns it and clears it when
+        // its own load settles.
+        if (!cancelled) {
+          inFlight.current = false;
+          setLoading(false);
+        }
       }
     };
 

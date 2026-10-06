@@ -38,13 +38,18 @@ source of truth in the repo.
       (`/object/profiles/x` → `NoSuchKey`, not `NoSuchBucket`)
 - [x] **T7** Onboarding screen: name + username → persist to `profiles` — `426f628`
       (profile image deferred to T15; **not yet run in Expo Go**)
-- [ ] **T8** Migration: `posts` table + `posts` storage bucket + RLS
-- [ ] **T9** Feed with pull-to-refresh
-- [ ] **T10** Camera / photo library, crop 1:1, upload to storage
-- [ ] **T11** 24h expiration + countdown, one active post per user
+- [x] **T8** Migration: `posts` table + `posts` storage bucket + RLS — shipped in
+      `odd/tasks/posts-and-feed.md` (human ran it, live-verified)
+- [x] **T9** Feed with pull-to-refresh — shipped in `posts-and-feed.md`
+      (runtime pass pending there, on migration `20261004150000`)
+- [x] **T10** Camera / photo library, crop 1:1, upload to storage — shipped in
+      `posts-and-feed.md`
+- [x] **T11** 24h expiration + countdown, one active post per user — shipped in
+      `posts-and-feed.md` (review follow-ups T16/T17 tracked there)
 - [ ] **T12** Profile screen (edit image, view details)
 - [ ] **T13** Dev seeding script (`scripts/seed.ts` — README promises it, it does not exist)
-- [ ] **T14** `app.json` photo/camera permission strings before store submission
+- [x] **T14** `app.json` photo/camera permission strings before store submission —
+      shipped in `posts-and-feed.md`
 - [ ] **T15** Profile image in onboarding (bucket `profiles` already exists)
 
 ## Scope notes / accepted decisions

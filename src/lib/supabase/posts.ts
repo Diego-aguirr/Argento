@@ -142,23 +142,58 @@ export type CreatePostInput = {
 };
 
 /**
+ * Best-effort undo of the deactivation that `createPost` performs before the
+ * upload. Runs only when a later step failed: the caller must return the
+ * ORIGINAL error, so a restore failure is only logged — the previous post
+ * then stays hidden until the user publishes again.
+ */
+async function restorePreviousActive(userId: string, previousIds: string[]): Promise<void> {
+  if (previousIds.length === 0) return;
+
+  try {
+    const { error } = await supabase
+      .from('posts')
+      .update({ is_active: true })
+      .eq('user_id', userId)
+      .in('id', previousIds);
+    if (error) console.warn(`[posts] could not restore previous active post: ${error.message}`);
+  } catch (cause) {
+    console.warn(
+      `[posts] could not restore previous active post: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
+  }
+}
+
+/**
  * Publishes a post in the README order: deactivate the previous active post →
  * upload the image at `{userId}/{timestamp}.{ext}` → insert the new row with
  * `expires_at = created_at + 24h` and `is_active = true`.
  *
  * The deactivation is not optional: the partial unique index
- * `posts_one_active_per_user` rejects an insert while an active row exists.
+ * `posts_one_active_per_user` rejects an insert while an active row exists,
+ * so it must stay before the insert. Because it also runs before the upload,
+ * every failure after it puts the deactivated row back first — otherwise a
+ * failed upload would silently hide the user's last post from every feed.
+ * Known limitation: if the upload succeeded but the insert failed, the
+ * uploaded object stays orphaned in storage (nothing references it, and no
+ * cleanup job exists).
  * Expiration stays a query filter in `fetchFeed` — there is no background job.
  */
 export async function createPost(
   input: CreatePostInput,
 ): Promise<{ error: PostgrestError | null }> {
-  const { error: deactivateError } = await supabase
+  // `.select('id')` turns the deactivation into `UPDATE ... RETURNING id`, so
+  // the statement stays atomic: an error means no row was touched, and the
+  // returned ids are exactly the rows a later failure has to restore.
+  const { data: deactivated, error: deactivateError } = await supabase
     .from('posts')
     .update({ is_active: false })
     .eq('user_id', input.userId)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .select('id');
   if (deactivateError) return { error: deactivateError };
+
+  const previousIds: string[] = (deactivated ?? []).map((row: { id: string }) => row.id);
 
   const extension = EXTENSION_BY_MIME[input.mimeType] ?? 'jpg';
   const createdAt = new Date();
@@ -166,7 +201,10 @@ export async function createPost(
   const { error: uploadError } = await supabase.storage
     .from('posts')
     .upload(path, input.imageBytes, { contentType: input.mimeType });
-  if (uploadError) return { error: asPostgrestError(uploadError) };
+  if (uploadError) {
+    await restorePreviousActive(input.userId, previousIds);
+    return { error: asPostgrestError(uploadError) };
+  }
 
   const { error: insertError } = await supabase.from('posts').insert({
     user_id: input.userId,
@@ -176,6 +214,7 @@ export async function createPost(
     expires_at: new Date(createdAt.getTime() + POST_TTL_MS).toISOString(),
     is_active: true,
   });
+  if (insertError) await restorePreviousActive(input.userId, previousIds);
 
   return { error: insertError };
 }

@@ -41,6 +41,12 @@ missing the posts half.
 - [x] **T14** `app.json` photo/camera permission strings (the checklist entry
       lives in supabase-auth.md as T14; checked off here because the create
       flow in this feature ships it)
+- [x] **T16** Restore the previous active post when `createPost` fails after
+      deactivating it (native review finding R3-001 — transient upload/insert
+      failure currently unpublishes the old post with no recovery path)
+- [x] **T17** Guard the initial load in `usePosts` with the `inFlight` ref so a
+      concurrent `refresh()` cannot be clobbered by a late first-load response
+      (native review finding R3-002)
 
 ## Scope notes / accepted decisions
 
@@ -49,14 +55,21 @@ missing the posts half.
 - **`posts` bucket is private with read-open-to-authenticated**: the feed shows
   other people's photos, so storage reads must be allowed for signed-in users;
   writes stay locked to the owner's folder (`{userId}/...`).
-- **Open follow-up:** the `profiles` bucket (avatars) is owner-read-only, so
-  feed avatars of other users may fail until a read policy for signed-in users
-  is added or signed URLs are used. Decide when the feed lands (T9).
+- **Avatar read policy RESOLVED in T9's extra migration.** The `profiles`
+  bucket was owner-read-only, so feed avatars of other users would fail;
+  `20261004150000_feed_profile_visibility.sql` drops `read own avatar` and
+  grants `read avatars` to authenticated users (still private — anonymous
+  stays denied). Not effective until the human runs it.
 - **The create flow is an in-screen modal, not a route.** The FAB opens a
   source alert, the picker crops 1:1, and a React Native `Modal`
   (`src/components/create-post-modal.tsx`) shows preview + description. No new
   file under `src/app/` means no router type regeneration and nothing to
   deep-link — a transient review overlay never needs a URL.
+- **Open follow-up from review (R3-003):** `created_at`/`expires_at` are
+  derived from the device clock and override the DB defaults. Decide with the
+  human whether to let Postgres apply `now()` instead — if so, keep the local
+  `createdAtMs` only for the storage object path, which must not drift from
+  the inserted `created_at`.
 
 ## Verification
 
@@ -78,7 +91,8 @@ missing the posts half.
   Extra migration `20261004150000_feed_profile_visibility.sql` (human-approved):
   feed join needs `profiles` rows readable, avatars readable, by authenticated.
   Verification: `npx tsc --noEmit` exit 0, `npx eslint .` exit 0 (writer + parent).
-  Engram mirror of this document: **pending** (mem_save unavailable this session).
+  Engram mirror of this document: saved (updated after every batch, topic
+  `odd/posts-and-feed/tasks`).
 - **Gotchas found:** supabase-js infers to-one embeds as arrays without
   generated DB types (handled with an `Array.isArray` branch, no `any`);
   `eslint-plugin-react-hooks` v7 treats `set-state-in-effect` /
@@ -116,15 +130,44 @@ missing the posts half.
     taken"; `describePostgrestError` now reads the constraint name out of the
     message to separate them, and storage `403` maps to the existing
     "Not allowed" copy.
-  - T14's checklist entry lives in `odd/tasks/supabase-auth.md` and is still
-    unchecked there (its T8–T11 are stale the same way); it is checked off
-    here, in the feature that ships it.
+  - T14's checklist entry lives in `supabase-auth.md` (as do T8–T11); all of
+    them are now checked there with a pointer to this feature, which is where
+    the code actually landed.
+
+- **2026-10-06 — native review of `5b64137`: APPROVED.** Lineage
+  `review-f0d1a62f9f663afe`, lens `review-reliability`, medium tier; authority
+  burned via `review.acknowledge-approved`. Three advisory findings, none
+  blocking: R3-001 and R3-002 became tasks T16/T17 above; R3-003 is the
+  clock-source follow-up in Scope notes. Reviewer output initially starved
+  three times on `mimo-v2.6-flash-free` (32k output cap exhausted by reasoning
+  on the 61KB payload); resolved by switching `agent.review-reliability` to
+  `opencode/fledge-alpha-free` + `mode: all` (details in Engram topic
+  `rdd/reviewer-model-fix`).
+
+- **2026-10-06 — T16 + T17:** review follow-up fixes, delegated to one writer
+  (2 files). T16: the deactivation UPDATE now chains `.select('id')` (single
+  atomic `UPDATE ... RETURNING id`); new `restorePreviousActive()` helper runs
+  on the upload-error and insert-error paths, scoped by `user_id`, never
+  throws — `createPost` always returns the original error. Deactivation stays
+  before insert (partial unique index constraint). Known limitation: an
+  upload that succeeds before a failed insert leaves one orphaned object.
+  T17: the initial-load effect takes the same `inFlight` lock `refresh()`
+  checks (`[]` deps, so it only races StrictMode re-runs); the lock is
+  released in `finally` only when `!cancelled`, so a cancelled run never
+  unlocks while a replacement run still owns it; a refresh fired mid-first-
+  load is an intentional no-op. No public API change.
+  Verification: `npx tsc --noEmit` → exit 0 (writer + parent spot check);
+  `npx eslint .` → exit 0 (writer).
 
 ## Next step
 
-T8 migration file, then the human runs it in the SQL Editor.
+T16 + T17 (review follow-up fixes), then the human runs migration
+`20261004150000_feed_profile_visibility.sql` and exercises feed + create-post
+in Expo Go. After this feature closes: T15 avatar in onboarding, T12 profile
+screen, T13 seed script (all in `odd/tasks/supabase-auth.md`).
 
 ## Rationale
 
 Decisions a diff cannot show (DB-enforced one-active-post, private bucket with
-authenticated reads, avatar read policy deferred) live here.
+authenticated reads, avatar read policy shipped inside the feed-visibility
+migration) live here.
