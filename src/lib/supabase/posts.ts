@@ -1,4 +1,4 @@
-import type { PostgrestError } from '@supabase/supabase-js';
+import { PostgrestError } from '@supabase/supabase-js';
 
 import { supabase } from '@/lib/supabase/client';
 
@@ -33,6 +33,20 @@ type FeedRow = {
 };
 
 const SIGNED_URL_TTL_SECONDS = 3600;
+
+/** README `Posts System`: a post lives for 24 hours from its creation. */
+const POST_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Storage object names must end in a real extension; unknown types fall back to jpg. */
+const EXTENSION_BY_MIME: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+  'image/gif': 'gif',
+  'image/bmp': 'bmp',
+};
 
 /**
  * The image columns store a storage PATH, so the feed needs a signed URL to
@@ -96,4 +110,72 @@ export async function fetchFeed(): Promise<{ posts: FeedPost[]; error: Postgrest
   );
 
   return { posts, error: null };
+}
+
+/**
+ * Storage failures carry no SQLSTATE, so they are reshaped into the
+ * PostgREST error shape before they leave this module: every error then
+ * reaches the UI through `describePostgrestError`, never as a raw message.
+ * A failure with no status code (fetch never got an answer) keeps an empty
+ * code, which lands on the mapper's connection branch.
+ */
+function asPostgrestError(error: {
+  message: string;
+  status?: number;
+  statusCode?: string;
+}): PostgrestError {
+  return new PostgrestError({
+    code: error.statusCode ?? (error.status !== undefined ? String(error.status) : ''),
+    message: error.message,
+    details: '',
+    hint: '',
+  });
+}
+
+export type CreatePostInput = {
+  userId: string;
+  /** Cropped image bytes ready for upload (decoded from the picker's base64). */
+  imageBytes: Uint8Array;
+  mimeType: string;
+  /** Already trimmed by the caller; empty becomes null. */
+  description: string | null;
+};
+
+/**
+ * Publishes a post in the README order: deactivate the previous active post →
+ * upload the image at `{userId}/{timestamp}.{ext}` → insert the new row with
+ * `expires_at = created_at + 24h` and `is_active = true`.
+ *
+ * The deactivation is not optional: the partial unique index
+ * `posts_one_active_per_user` rejects an insert while an active row exists.
+ * Expiration stays a query filter in `fetchFeed` — there is no background job.
+ */
+export async function createPost(
+  input: CreatePostInput,
+): Promise<{ error: PostgrestError | null }> {
+  const { error: deactivateError } = await supabase
+    .from('posts')
+    .update({ is_active: false })
+    .eq('user_id', input.userId)
+    .eq('is_active', true);
+  if (deactivateError) return { error: deactivateError };
+
+  const extension = EXTENSION_BY_MIME[input.mimeType] ?? 'jpg';
+  const createdAt = new Date();
+  const path = `${input.userId}/${createdAt.getTime()}.${extension}`;
+  const { error: uploadError } = await supabase.storage
+    .from('posts')
+    .upload(path, input.imageBytes, { contentType: input.mimeType });
+  if (uploadError) return { error: asPostgrestError(uploadError) };
+
+  const { error: insertError } = await supabase.from('posts').insert({
+    user_id: input.userId,
+    image_url: path,
+    description: input.description,
+    created_at: createdAt.toISOString(),
+    expires_at: new Date(createdAt.getTime() + POST_TTL_MS).toISOString(),
+    is_active: true,
+  });
+
+  return { error: insertError };
 }

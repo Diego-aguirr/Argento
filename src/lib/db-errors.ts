@@ -19,23 +19,42 @@ const MISCONFIGURED: PresentedError = {
   message: 'Something is misconfigured on the server. Try again later.',
 };
 
+const NOT_ALLOWED: PresentedError = {
+  title: 'Not allowed',
+  message: 'You do not have permission to save this.',
+};
+
+/** Postgres SQLSTATE unique_violation: shared by several constraints. */
+const USERNAME_TAKEN: PresentedError = {
+  title: 'Username taken',
+  message: 'That username is already in use. Try another one.',
+};
+
 /**
- * Codes reachable from this app's flows: onboarding (profile read/write)
- * and the queries that read it. Everything else falls through to GENERIC.
+ * Same SQLSTATE (23505), but raised by the partial unique index that enforces
+ * one active post per user. Postgres puts the constraint name in the message,
+ * which is how the two failures are told apart. Reachable when two devices
+ * post for the same account between the deactivation and the insert (T11).
+ */
+const ACTIVE_POST_CONFLICT: PresentedError = {
+  title: 'Post not published',
+  message: 'Your previous post is still active. Try posting again.',
+};
+
+/**
+ * Codes reachable from this app's flows: onboarding (profile read/write),
+ * the queries that read it, and post creation (storage uploads answer 403
+ * when the owner-folder policy refuses a write). Everything else falls
+ * through to GENERIC.
  */
 const BY_CODE: Record<string, PresentedError> = {
-  '23505': {
-    title: 'Username taken',
-    message: 'That username is already in use. Try another one.',
-  },
+  '23505': USERNAME_TAKEN,
   '23503': {
     title: 'Profile not found',
     message: 'Your account record is missing. Sign out and sign in again.',
   },
-  '42501': {
-    title: 'Not allowed',
-    message: 'You do not have permission to save this.',
-  },
+  '42501': NOT_ALLOWED,
+  '403': NOT_ALLOWED,
   PGRST116: {
     title: 'Nothing saved',
     message: 'The change was not applied. Please try again.',
@@ -68,7 +87,12 @@ export function describePostgrestError(
 
   if (isTransportFailure(error)) return CONNECTION;
 
-  const mapped = BY_CODE[error.code];
+  // 23505 is shared: the constraint name in the message tells a username
+  // collision from the one-active-post index violation apart.
+  const mapped =
+    error.code === '23505' && error.message.includes('posts_one_active_per_user')
+      ? ACTIVE_POST_CONFLICT
+      : BY_CODE[error.code];
   if (mapped) return mapped;
 
   // Unmapped code: keep the raw detail for the developer, never for the user.

@@ -35,6 +35,13 @@
       ],
       "expo-font",
       "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Argento needs access to your photos so you can pick your daily post.",
+          "cameraPermission": "Argento needs access to the camera so you can take your daily post."
+        }
+      ],
       "expo-status-bar",
       "expo-web-browser"
     ],
