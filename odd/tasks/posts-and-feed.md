@@ -159,12 +159,29 @@ missing the posts half.
   Verification: `npx tsc --noEmit` → exit 0 (writer + parent spot check);
   `npx eslint .` → exit 0 (writer).
 
+- **2026-10-06 — native review of `b3cd734`: APPROVED.** Lineage
+  `review-2fef17a8a8fbb4ad`, high tier, all four lenses (risk, resilience,
+  readability, reliability); authority burned via
+  `review.acknowledge-approved`, no correction. Two advisory findings, none
+  blocking: R3-001 (`src/lib/supabase/posts.ts:150`) — the restore-on-failure
+  path has no behavioral test, only tsc/eslint — and R3-002
+  (`src/hooks/usePosts.ts:50`) — same for the initial-load lock semantics;
+  tracked as follow-up work, never a reason to re-review this candidate.
+  Transport note: three lens Tasks starved on `mimo-v2.6-flash-free` (the
+  running session caches agent config at startup, so disk fixes do not reach
+  in-session Task launches); reruns via fresh `opencode run --agent <lens>`
+  processes succeeded on `opencode/fledge-alpha-free`, and all four lens
+  agents are now pinned to fledge + `mode: all` in `opencode.json`
+  (Engram topic `rdd/reviewer-model-fix`).
+
 ## Next step
 
-T16 + T17 (review follow-up fixes), then the human runs migration
-`20261004150000_feed_profile_visibility.sql` and exercises feed + create-post
-in Expo Go. After this feature closes: T15 avatar in onboarding, T12 profile
-screen, T13 seed script (all in `odd/tasks/supabase-auth.md`).
+The human runs migration `20261004150000_feed_profile_visibility.sql` and
+exercises feed + create-post in Expo Go (runtime pass for T9–T11, now also
+covering T16/T17). Open follow-up: behavioral tests for the restore path and
+the initial-load lock (advisory R3-001/R3-002 above). After this feature
+closes: T15 avatar in onboarding, T12 profile screen, T13 seed script (all
+in `odd/tasks/supabase-auth.md`).
 
 ## Rationale
 
