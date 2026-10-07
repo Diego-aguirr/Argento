@@ -25,6 +25,19 @@ npx expo install --fix      # fix incompatible package versions
 
 Run lint and typecheck before declaring any task done.
 
+## TypeScript
+
+`tsconfig.json` extends `expo/tsconfig.base` with `strict: true` (TypeScript ~6.0). These rules are binding for every `.ts`/`.tsx` file:
+
+- **No `any`, no `@ts-ignore`/`@ts-expect-error`.** Model the type instead. Genuinely unknown external input is `unknown` + narrowing (`describePostgrestError` is the reference pattern).
+- **No non-null assertions (`!`).** Absence belongs in the type (`| null`): narrow with a guard or early return. The only exception is inside `if (x)`-guarded blocks where the guard already proved presence — prefer restructuring over `!`.
+- **Type-only imports are explicit:** `import type { X }` or inline `import { type X }`. Values that are used at runtime (`new PostgrestError(...)`) stay normal imports.
+- **Catch and map, never leak:** `catch (cause)` → narrow (`cause instanceof Error`) → map through `describeAuthError`/`describePostgrestError` → UI shows the `PresentedError`. Raw backend/picker messages never reach the user.
+- **Discriminated unions and plain types; no `enum`, no `namespace`.**
+- **PostgREST rows are mapped explicitly at the lib boundary** (snake_case row type → camelCase domain type, see `FeedRow` → `FeedPost` in `src/lib/supabase/posts.ts`). Components never see snake_case columns.
+- **Named types for API shapes:** never inline object literals as parameter/return types across layers; declare the type where its owner lives (`src/lib/supabase/*`, `src/hooks/*`).
+- **No lazy casts:** `x as Y` only when the value's origin guarantees `Y` and a comment says why (e.g. `cause as PostgrestError` before mapping — the mapper validates codes anyway). Casting to silence the compiler is forbidden.
+
 ## Navigation & Routing
 
 - Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
