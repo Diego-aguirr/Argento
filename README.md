@@ -2,7 +2,7 @@
 
 A BeReal-style social app: users share **one photo per day** that **automatically expires after 24 hours**. The core concept encourages authentic, in-the-moment sharing.
 
-> **Status:** spec/planned. The repository currently holds the Expo starter; implementation follows the roadmap below.
+> **Status:** implemented — auth, onboarding, feed, posts, and profile are working, with a dev seeding script included.
 
 ## Features
 
@@ -19,7 +19,7 @@ A BeReal-style social app: users share **one photo per day** that **automaticall
 
 | Layer | Technology |
 |---|---|
-| Framework | React Native 0.88 + Expo SDK 58 |
+| Framework | React Native 0.86 + Expo SDK 57 |
 | Language | TypeScript (strict) |
 | Navigation | Expo Router (file-based) |
 | Backend | Supabase (Auth + PostgreSQL + Storage) |
@@ -28,7 +28,7 @@ A BeReal-style social app: users share **one photo per day** that **automaticall
 | Session storage | AsyncStorage |
 | Package manager | pnpm |
 
-> Course references target Expo SDK 55 / RN 0.83. This project runs **SDK 58** — always verify APIs against the [versioned docs](https://docs.expo.dev/versions/v58.0.0/) before using them.
+> Course references target Expo SDK 55 / RN 0.83. This project runs **SDK 57** — always verify APIs against the [versioned docs](https://docs.expo.dev/versions/v57.0.0/) before using them.
 
 ## App Architecture
 
@@ -121,6 +121,8 @@ The `supabase/migrations/` folder is the **source of truth for the schema**. Run
 |---|---|
 | `supabase/migrations/20261003170000_create_profiles.sql` | `profiles` table, its three RLS policies, the signup trigger, and a backfill for pre-existing accounts |
 | `supabase/migrations/20261003170100_storage_profiles_bucket.sql` | The private `profiles` storage bucket and its owner-only access policies |
+| `supabase/migrations/20261004120000_create_posts.sql` | `posts` table, its RLS policies, the `posts_one_active_per_user` index, and the private `posts` storage bucket |
+| `supabase/migrations/20261004150000_feed_profile_visibility.sql` | Signed-in read access to other users' profile rows and avatars (needed by the feed) |
 
 Until the Supabase CLI is adopted, open **Dashboard → SQL Editor**, paste the contents of each file, and press **Run** — one file at a time, in the order above. The folder layout already matches the CLI convention, so `supabase db push` will work unchanged once the CLI is set up.
 
@@ -131,8 +133,6 @@ select id, name, username, onboarding_completed from public.profiles;
 ```
 
 Expected result: exactly 1 row, with `name` and `username` null and `onboarding_completed = false`.
-
-> **Still TODO:** the `posts` table and the `posts` storage bucket are not created yet.
 
 ### Steps
 
@@ -156,9 +156,30 @@ Expected result: exactly 1 row, with `name` and `username` null and `onboarding_
 
 4. Start the app: `npx expo start` — scan the QR with Expo Go, or press `i` / `a` for simulators.
 
+### Seeding (dev)
+
+Populates the project with realistic data: **3 demo users**, each with an avatar, **1 recent active post** (visible in the feed) and **3 expired posts** (excluded by the feed filter). Re-running replaces the demo data instead of duplicating it.
+
+```bash
+pnpm seed
+```
+
+| Email | Password | Username | Name |
+|---|---|---|---|
+| demo1@argento.dev | `argento-demo-123` | alex | Alex Rivera |
+| demo2@argento.dev | `argento-demo-123` | maya | Maya Chen |
+| demo3@argento.dev | `argento-demo-123` | leo | Leo Torres |
+
+- Images come from `assets/post/imag/` (local only, deduplicated by content hash, not committed).
+- Requires `SUPABASE_SERVICE_ROLE_KEY` in `.env` (see [Steps](#steps)).
+
+> **Warning:** dev-only — the service role key **bypasses all RLS**. It lives in `.env` (gitignored), is read only by `scripts/seed.ts`, and must never ship in the app bundle or use the `EXPO_PUBLIC_` prefix.
+
 ## Project File Structure
 
 ```
+scripts/
+└── seed.ts                    # Dev seed script (pnpm seed)
 src/
 ├── app/
 │   ├── _layout.tsx               # Root layout + RouteGuard
@@ -172,10 +193,11 @@ src/
 │       ├── index.tsx             # Home feed
 │       └── profile.tsx
 ├── context/AuthContext.tsx       # Auth state
-├── hooks/usePosts.ts             # Post CRUD
+├── hooks/                        # usePosts, useCreatePost, useProfileEdit
+├── components/                   # Feed cards, avatar, create-post modal
 └── lib/
-    ├── date-helper.ts            # Time formatting
-    └── supabase/                 # Client + storage utils
+    ├── supabase/                 # Client + storage utils
+    └── *-errors.ts               # Error mapping helpers
 ```
 
 ## Conventions & AI Assistant Rules
