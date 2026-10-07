@@ -6,6 +6,8 @@ import type { FeedPost } from '@/lib/supabase/posts';
 
 import { Colors, Spacing } from '@/constants/theme';
 
+import { Avatar } from './avatar';
+
 /**
  * Owns its own interval so a tick re-renders only the badge, not the whole
  * list row: 50 rows would otherwise re-render every 15 seconds.
@@ -41,18 +43,11 @@ function remainingLabel(expiresAt: string, nowMs: number): string {
 
 export function PostCard({ post }: { post: FeedPost }) {
   const fallback = post.profile?.name ?? post.profile?.username ?? '?';
-  const initial = fallback.charAt(0).toUpperCase();
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        {post.avatarUrl ? (
-          <Image source={{ uri: post.avatarUrl }} style={styles.avatar} contentFit="cover" />
-        ) : (
-          <View style={styles.avatarFallback}>
-            <Text style={styles.avatarInitial}>{initial}</Text>
-          </View>
-        )}
+        <Avatar uri={post.avatarUrl} name={fallback} size={40} style={styles.avatarCircle} />
         <View style={styles.author}>
           <Text style={styles.name}>
             {post.profile?.name ?? post.profile?.username ?? 'Unknown'}
@@ -88,23 +83,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  avatarFallback: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  avatarCircle: {
     backgroundColor: Colors.light.backgroundElement,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.light.textSecondary,
   },
   author: {
     flex: 1,

@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/avatar';
 import { useAuth } from '@/context/AuthContext';
 import { useProfileEdit } from '@/hooks/useProfileEdit';
 import type { ImagePickSource } from '@/lib/image-picker';
@@ -55,7 +55,6 @@ function ProfileView({ profile, email }: { profile: Profile; email: string }) {
   } = useProfileEdit(profile);
 
   const fallback = profile.name || profile.username || '?';
-  const initial = fallback.charAt(0).toUpperCase();
 
   const runPick = (source: ImagePickSource) => {
     void pickAvatar(source).then((presented) => {
@@ -101,13 +100,7 @@ function ProfileView({ profile, email }: { profile: Profile; email: string }) {
               disabled={saving}
               accessibilityRole="button"
               accessibilityLabel={avatarUri ? 'Change profile photo' : 'Add profile photo'}>
-              {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.avatar} contentFit="cover" />
-              ) : (
-                <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarInitial}>{initial}</Text>
-                </View>
-              )}
+              <Avatar uri={avatarUri} name={fallback} size={116} style={styles.avatar} />
               <View style={styles.avatarBadge}>
                 <Text style={styles.avatarBadgeText}>+</Text>
               </View>
@@ -216,25 +209,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.four,
   },
   avatar: {
-    width: 116,
-    height: 116,
-    borderRadius: 58,
-    backgroundColor: '#eee',
-  },
-  avatarFallback: {
-    width: 116,
-    height: 116,
-    borderRadius: 58,
     backgroundColor: '#eee',
     borderWidth: 1,
     borderColor: '#ddd',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    fontSize: 40,
-    fontWeight: '600',
-    color: '#666',
   },
   avatarBadge: {
     position: 'absolute',
