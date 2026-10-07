@@ -1,6 +1,7 @@
-import { PostgrestError } from '@supabase/supabase-js';
+import type { PostgrestError } from '@supabase/supabase-js';
 
 import { supabase } from '@/lib/supabase/client';
+import { asPostgrestError, EXTENSION_BY_MIME } from '@/lib/supabase/storage';
 
 export type FeedProfile = {
   name: string | null;
@@ -36,17 +37,6 @@ const SIGNED_URL_TTL_SECONDS = 3600;
 
 /** README `Posts System`: a post lives for 24 hours from its creation. */
 const POST_TTL_MS = 24 * 60 * 60 * 1000;
-
-/** Storage object names must end in a real extension; unknown types fall back to jpg. */
-const EXTENSION_BY_MIME: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/heic': 'heic',
-  'image/heif': 'heif',
-  'image/gif': 'gif',
-  'image/bmp': 'bmp',
-};
 
 /**
  * The image columns store a storage PATH, so the feed needs a signed URL to
@@ -110,26 +100,6 @@ export async function fetchFeed(): Promise<{ posts: FeedPost[]; error: Postgrest
   );
 
   return { posts, error: null };
-}
-
-/**
- * Storage failures carry no SQLSTATE, so they are reshaped into the
- * PostgREST error shape before they leave this module: every error then
- * reaches the UI through `describePostgrestError`, never as a raw message.
- * A failure with no status code (fetch never got an answer) keeps an empty
- * code, which lands on the mapper's connection branch.
- */
-function asPostgrestError(error: {
-  message: string;
-  status?: number;
-  statusCode?: string;
-}): PostgrestError {
-  return new PostgrestError({
-    code: error.statusCode ?? (error.status !== undefined ? String(error.status) : ''),
-    message: error.message,
-    details: '',
-    hint: '',
-  });
 }
 
 export type CreatePostInput = {
