@@ -21,6 +21,7 @@ npx expo lint               # lint
 npx tsc --noEmit            # typecheck
 npx expo-doctor             # diagnose dependency and config issues
 npx expo install --fix      # fix incompatible package versions
+pnpm seed                   # dev seed (requires SUPABASE_SERVICE_ROLE_KEY in .env — see README)
 ```
 
 Run lint and typecheck before declaring any task done.
@@ -119,6 +120,7 @@ Docs: https://docs.expo.dev/eas/index.md
 - `SUPABASE_SERVICE_ROLE_KEY` bypasses ALL security rules. It is for local dev scripts only (e.g. `scripts/seed.ts`). Never read it with `process.env.EXPO_PUBLIC_*`, never import it from app code, never log it.
 - Enable RLS on every table; write the policies for `profiles` and `posts` before exposing reads/writes.
 - Storage buckets: default to private with signed URLs in production; public buckets mean anyone with the URL sees the image.
+- **Image uploads are dependency-free:** read bytes in JS — `expo-image-picker` with `base64: true` → `base64ToBytes` (`src/lib/base64.ts`) → `supabase.storage.upload()` with a `Uint8Array`. Do NOT add native deps (react-native-fs, blob/fetch helpers) for this; storage-js accepts bytes directly. Fixed-path uploads (avatar at `{uid}/profile.{ext}`) need `upsert: true` or a retry gets 409.
 
 ## AI Skill Arsenal
 
@@ -126,7 +128,8 @@ Docs: https://docs.expo.dev/eas/index.md
   - `react-native-best-practices` — lists, animations, images, platform variants, re-renders.
   - `expo-router-architecture` — routes, layouts, params, deep links, typedRoutes.
   - `react-native-architecture` — feature-first structure, container/presentational, state-management gate, API layer.
-  - `react-native-testing` — test command detection, jest-expo, native mocks, TDD gates.
+  - `react-native-testing` — test command detection, jest-expo, native mocks, TDD gates (note: no test runner is installed in this project yet — installing one is the human's call).
+  - `supabase-server` (project skill, `.claude/skills/supabase-server/SKILL.md`) — server-side Supabase code: Edge Functions, `@supabase/server`, inbound auth validation. Load before touching anything under `supabase/functions/`.
 - Skills are instructions, not inspiration: their Hard Rules are binding for this project.
 - Project conventions in this file (AGENTS.md) and README.md outrank generic skill advice on conflict; report the conflict instead of silently choosing.
 

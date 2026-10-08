@@ -132,7 +132,7 @@ Until the Supabase CLI is adopted, open **Dashboard → SQL Editor**, paste the 
 select id, name, username, onboarding_completed from public.profiles;
 ```
 
-Expected result: exactly 1 row, with `name` and `username` null and `onboarding_completed = false`.
+Expected result: the query succeeds and lists the profiles that exist — `0` rows on a brand-new project, `3` demo users after `pnpm seed` (in the app each user shows `name`, `username`, and `onboarding_completed = true` once they finish onboarding).
 
 ### Steps
 
@@ -196,7 +196,9 @@ src/
 ├── hooks/                        # usePosts, useCreatePost, useProfileEdit
 ├── components/                   # Feed cards, avatar, create-post modal
 └── lib/
-    ├── supabase/                 # Client + storage utils
+    ├── supabase/                 # Client, posts, profiles, storage
+    ├── base64.ts                 # base64 → bytes (dependency-free uploads)
+    ├── image-picker.ts           # Camera/library pick + 1:1 crop
     └── *-errors.ts               # Error mapping helpers
 ```
 
