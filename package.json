@@ -45,10 +45,5 @@
     "lint": "expo lint",
     "seed": "node --env-file-if-exists=.env scripts/seed.ts"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "unrs-resolver"
-    ]
-  },
   "private": true
 }
