@@ -8,9 +8,11 @@
     "scheme": "argento",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.clyde.argento",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.clyde.argento",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
