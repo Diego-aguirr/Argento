@@ -44,3 +44,6 @@ example
 /android
 # Local AI runtime state
 .atl/
+
+# local seed photos (README: local only, not committed)
+assets/post/

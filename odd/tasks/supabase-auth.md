@@ -1,6 +1,7 @@
 # Feature: Supabase auth + onboarding
 
-**Branch:** `feat/supabase-auth`
+**Branch:** `feat/supabase-auth` (remaining tasks T12/T13/T15 continue on
+`feat/profile-and-seed` from `b45e506`)
 **Created:** 2026-10-03
 **Route:** delegated direct (writer delegation for migrations/README and onboarding batches)
 
@@ -38,13 +39,18 @@ source of truth in the repo.
       (`/object/profiles/x` → `NoSuchKey`, not `NoSuchBucket`)
 - [x] **T7** Onboarding screen: name + username → persist to `profiles` — `426f628`
       (profile image deferred to T15; **not yet run in Expo Go**)
-- [ ] **T8** Migration: `posts` table + `posts` storage bucket + RLS
-- [ ] **T9** Feed with pull-to-refresh
-- [ ] **T10** Camera / photo library, crop 1:1, upload to storage
-- [ ] **T11** 24h expiration + countdown, one active post per user
+- [x] **T8** Migration: `posts` table + `posts` storage bucket + RLS — shipped in
+      `odd/tasks/posts-and-feed.md` (human ran it, live-verified)
+- [x] **T9** Feed with pull-to-refresh — shipped in `posts-and-feed.md`
+      (runtime pass pending there, on migration `20261004150000`)
+- [x] **T10** Camera / photo library, crop 1:1, upload to storage — shipped in
+      `posts-and-feed.md`
+- [x] **T11** 24h expiration + countdown, one active post per user — shipped in
+      `posts-and-feed.md` (review follow-ups T16/T17 tracked there)
 - [ ] **T12** Profile screen (edit image, view details)
 - [ ] **T13** Dev seeding script (`scripts/seed.ts` — README promises it, it does not exist)
-- [ ] **T14** `app.json` photo/camera permission strings before store submission
+- [x] **T14** `app.json` photo/camera permission strings before store submission —
+      shipped in `posts-and-feed.md`
 - [ ] **T15** Profile image in onboarding (bucket `profiles` already exists)
 
 ## Scope notes / accepted decisions
@@ -104,8 +110,14 @@ had been generated before `onboarding.tsx` existed, so `tsc` reported
 
 ## Next step
 
-Run the app in Expo Go and exercise the flow end to end with an account whose
-`onboarding_completed` is false, then T8 (`posts` table + bucket migration).
+Batch in order on `feat/profile-and-seed`, all **delegated direct** (each
+task touches 2+ non-trivial files; one mapper explores first — 4-file rule):
+**T15** profile image in onboarding → **T12** profile screen → **T13** seed
+script (at T13 the human provides the README seeding details, by their
+request). Route declaration per task is logged in Progress & evidence as it
+closes. The human runtime pass for `posts-and-feed` (migration
+`20261004150000_feed_profile_visibility.sql` + Expo Go) stays pending in
+parallel.
 
 ## Rationale
 
