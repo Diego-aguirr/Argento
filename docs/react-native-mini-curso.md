@@ -260,7 +260,21 @@ eas build --profile preview
       ...el resto no corrió
 ```
 
-El build de EAS no usa tu máquina: un worker en la nube recibe tu código y corre ahí `install` + compile. Falló en *instalar dependencias* — la causa vive en su log (pendiente de leer). Errores típicos de esa fase: el package manager no detectado (tu repo usa **pnpm** — `pnpm-lock.yaml` — y hay que asegurar que el worker lo use), versión de Node incompatible, o una dependencia que no resuelve.
+El build de EAS no usa tu máquina: un worker en la nube recibe tu código y corre ahí `install` + compile. Falló en *instalar dependencias*. La causa real (una vez leído su log):
+
+```
+[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: unrs-resolver@1.12.2
+Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+pnpm install --frozen-lockfile exited with non-zero code: 1
+```
+
+**Qué es**: desde pnpm 10, por seguridad (supply-chain), **ninguna dependencia puede ejecutar sus scripts de post-instalación sin aprobación explícita**. En tu máquina pasaba porque es interactivo/ya tenés `node_modules`; en la nube, `--frozen-lockfile` non-interactive lo convierte en error duro. El fix: declarar en `package.json` qué paquetes están autorizados:
+
+```json
+"pnpm": { "onlyBuiltDependencies": ["unrs-resolver"] }
+```
+
+Lección doble: (1) el worker de EAS corre *exactamente* los mismos comandos que podés reproducir localmente (`pnpm install --frozen-lockfile`) — si lo rompés local, lo rompés en la nube; (2) los logs de EAS vienen comprimidos (brotli) y firmados con URL de 15 min — el error nunca estaba en "Unknown error" del dashboard, estaba en el log de la fase.
 
 **TL;DR de la movida**: `eas init` linkeó tu repo a un proyecto de EAS (`@soyafls/argento`, projectId en `app.json`); el primer `eas build` armó todo el pipeline de firma y subida; el worker de la nube falló instalando deps; se lee el log, se arregla la config, se relanza. El keystore y el proyecto quedaron creados — no se repiten.
 
