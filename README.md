@@ -2,7 +2,7 @@
 
 Argento is a BeReal-style photo-sharing app: every user shares **one photo per day**, and every post **expires 24 hours after it was created**. It is an Expo SDK 57 / React Native 0.86.3 app written in strict TypeScript, with Expo Router navigation and a Supabase backend (Auth, Postgres with Row Level Security, Storage).
 
-> **Status:** implemented end to end — auth, onboarding, feed, post creation, and profile editing all work against a real Supabase project, and `pnpm seed` fills a dev project with demo data. This document explains how the whole system works, flow by flow, so a new contributor can contribute without reverse-engineering the code.
+> **Status:** learning project, complete and not planned for store submission — auth, onboarding, feed, post creation, and profile editing all work against a real Supabase project, and `pnpm seed` fills a dev project with demo data. This document explains how the whole system works, flow by flow, so it doubles as study material. To learn React Native with this repo, see [Learning resources](#learning-resources).
 
 ## How it works in 60 seconds
 
@@ -374,6 +374,13 @@ Expected result: the query succeeds and lists the profiles that exist — `0` ro
 - Binding rules for every change — TypeScript strictness, clean code, performance, accessibility, security, workflow — live in [AGENTS.md](./AGENTS.md). Read it before your first commit.
 - The skill index for this project (React Native best practices, Expo Router, architecture, testing) is `.atl/skill-registry.md`.
 - Security baseline: the JS bundle is public — secrets never ship in the app. `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` are public by design; safety comes from RLS. `SUPABASE_SERVICE_ROLE_KEY` is for local dev scripts only.
+
+## Learning resources
+
+This repo was built as a learning project. Two entry points:
+
+- **New to React Native?** Start with [docs/react-native-mini-curso.md](./docs/react-native-mini-curso.md) — a mini course for React developers covering the mental-model differences, components, styles, navigation, data, performance, builds (EAS), and accessibility, plus a map of how each topic shows up in Argento's code.
+- **Know React Native already?** This README is the complete project documentation — flows, schema, RLS, image pipeline, and setup. Read it top to bottom and follow along in `src/`.
 
 ## Where to go next
 
