@@ -1,0 +1,6 @@
+# pnpm configuration (single-package repo)
+# allowBuilds: dependencies whose install scripts are approved to run.
+# pnpm 10.26+ / 11 syntax — pnpm 11 removed the legacy package.json
+# "pnpm.onlyBuiltDependencies" field (silently ignored there).
+allowBuilds:
+  unrs-resolver: true
